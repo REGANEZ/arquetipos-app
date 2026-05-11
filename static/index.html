@@ -282,6 +282,37 @@
     margin-bottom: 0;
   }
 
+  #progress-bar-container {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 20px;
+    flex-shrink: 0;
+    display: none;
+  }
+
+  #progress-label {
+    font-size: 12px;
+    color: var(--text-light);
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  #progress-track {
+    background: var(--border);
+    border-radius: 99px;
+    height: 6px;
+    overflow: hidden;
+  }
+
+  #progress-fill {
+    background: var(--primary);
+    height: 100%;
+    border-radius: 99px;
+    transition: width 0.4s ease;
+    width: 0%;
+  }
+
   @media (max-width: 600px) {
     header { padding: 12px 16px; }
     #messages { padding: 16px 12px; }
@@ -298,6 +329,16 @@
     <p>Psicología del dinero · Test de arquetipo · Drills personalizados</p>
   </div>
 </header>
+
+<div id="progress-bar-container">
+  <div id="progress-label">
+    <span id="progress-text">Pregunta 1 de 40</span>
+    <span id="progress-pct">0%</span>
+  </div>
+  <div id="progress-track">
+    <div id="progress-fill"></div>
+  </div>
+</div>
 
 <div id="messages"></div>
 
@@ -459,7 +500,12 @@ async function sendMessage() {
             const data = JSON.parse(line.slice(6));
             if (data.text) {
               fullText += data.text;
-              contentDiv.innerHTML = '<p>' + parseMarkdown(fullText) + '</p>';
+              // Detect and update progress bar
+              const qNum = extractQuestionNumber(fullText);
+              if (qNum) updateProgress(qNum);
+              // Display text without the marker
+              const displayText = stripQuestionMarker(fullText);
+              contentDiv.innerHTML = '<p>' + parseMarkdown(displayText) + '</p>';
               scrollToBottom();
             }
           } catch {}
@@ -467,6 +513,12 @@ async function sendMessage() {
       }
     }
 
+    // Check if test is complete (question 40 was answered)
+    if (currentQuestion >= 40 && conversationHistory.filter(m => m.role === 'user').length > 40) {
+      markTestComplete();
+    }
+
+    const displayFull = stripQuestionMarker(fullText);
     conversationHistory.push({ role: 'assistant', content: fullText });
 
   } catch (err) {
@@ -494,26 +546,46 @@ inputEl.addEventListener('keydown', (e) => {
 
 sendBtn.addEventListener('click', sendMessage);
 
+// Progress tracking
+let currentQuestion = 0;
+
+function updateProgress(questionNum) {
+  if (questionNum < 1) return;
+  currentQuestion = questionNum;
+  const pct = Math.round((questionNum - 1) / 40 * 100);
+  document.getElementById('progress-bar-container').style.display = 'block';
+  document.getElementById('progress-text').textContent = `Pregunta ${questionNum} de 40`;
+  document.getElementById('progress-pct').textContent = pct + '%';
+  document.getElementById('progress-fill').style.width = pct + '%';
+}
+
+function markTestComplete() {
+  document.getElementById('progress-text').textContent = '✅ Test completado';
+  document.getElementById('progress-pct').textContent = '100%';
+  document.getElementById('progress-fill').style.width = '100%';
+}
+
+// Detect question number in AI response and strip the marker
+function extractQuestionNumber(text) {
+  const match = text.match(/\[PREGUNTA\s+(\d+)\/40\]/i);
+  return match ? parseInt(match[1]) : null;
+}
+
+function stripQuestionMarker(text) {
+  return text.replace(/\[PREGUNTA\s+\d+\/40\]\s*/gi, '').trim();
+}
+
 // Initial greeting — fixed text, no API call
 function initGreeting() {
-  const welcomeText = `¡Hola! Bienvenido/a. Me alegra mucho que estés aquí.
+  const welcomeText = `¡Hola! Bienvenido/a al **Test de Arquetipos de Supervivencia Financiera**.
 
-Este es un espacio para conversar con honestidad sobre tu relación con el dinero, el trabajo, las decisiones y todo eso que muchas veces pesa más de lo que parece.
+Este test tiene **40 preguntas** y tarda entre 10 y 15 minutos.
 
-No se trata solo de números. A veces el dinero toca seguridad, autoestima, miedo, ambición, culpa, libertad, cansancio… y entender eso cambia mucho más de lo que creemos.
+Al final vas a descubrir tu arquetipo financiero dominante — el patrón emocional que más influye en cómo te relacionas con el dinero — y recibirás recomendaciones y ejercicios específicos para empezar a cambiar.
 
-Antes de comenzar, me gustaría saber tu nombre. **¿Cómo te llamas?**
+No hay respuestas correctas ni incorrectas. Solo responde con honestidad.
 
-Y cuando quieras, podemos hacerlo de distintas maneras:
-
-- Conversar libremente sobre lo que estás viviendo, pensando o sintiendo
-- Hacer un **test de 40 preguntas** para descubrir el patrón que más influye en tu manera de actuar con el dinero y las oportunidades
-- Mezclar ambas cosas — conversar primero y luego profundizar con el test
-
-No necesitas tener todo claro para empezar.
-A veces una simple conversación ya revela muchísimo.
-
-**¿Qué te gustaría hacer?**`;
+Para comenzar: **¿Cómo te llamas?**`;
 
   const div = document.createElement('div');
   div.className = 'message ai';
@@ -529,27 +601,6 @@ A veces una simple conversación ya revela muchísimo.
   contentDiv.innerHTML = '<p>' + parseMarkdown(welcomeText) + '</p>';
   bubble.appendChild(contentDiv);
 
-  const qr = document.createElement('div');
-  qr.className = 'quick-replies';
-
-  const replies = [
-    { label: '🎯 Quiero hacer el test', text: 'Quiero hacer el test de arquetipo' },
-    { label: '💬 Prefiero conversar primero', text: 'Prefiero conversar primero sobre mi situación' },
-    { label: '🔀 Mezclar ambas cosas', text: 'Me gustaría mezclar la conversación con el test' }
-  ];
-
-  replies.forEach(r => {
-    const btn = document.createElement('button');
-    btn.className = 'quick-reply';
-    btn.textContent = r.label;
-    btn.onclick = () => {
-      inputEl.value = r.text;
-      sendMessage();
-    };
-    qr.appendChild(btn);
-  });
-
-  bubble.appendChild(qr);
   div.appendChild(avatar);
   div.appendChild(bubble);
   messagesEl.appendChild(div);
