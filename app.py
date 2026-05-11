@@ -656,6 +656,10 @@ async def chat(request: Request):
     data = await request.json()
     messages = data.get("messages", [])
 
+    # Keep only the last 20 messages to avoid token buildup in long sessions
+    if len(messages) > 20:
+        messages = messages[-20:]
+
     def generate():
         try:
             with client.messages.stream(
