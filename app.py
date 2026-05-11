@@ -7,14 +7,15 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import anthropic
 
-# Read API key directly from .env file
-_env_path = Path(__file__).parent / ".env"
-_api_key = ""
-if _env_path.exists():
-    for line in _env_path.read_text().splitlines():
-        if line.startswith("ANTHROPIC_API_KEY="):
-            _api_key = line.split("=", 1)[1].strip()
-            break
+# Read API key: first from environment variable, then from .env file
+_api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+if not _api_key:
+    _env_path = Path(__file__).parent / ".env"
+    if _env_path.exists():
+        for line in _env_path.read_text().splitlines():
+            if line.startswith("ANTHROPIC_API_KEY="):
+                _api_key = line.split("=", 1)[1].strip()
+                break
 
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
