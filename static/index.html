@@ -494,91 +494,71 @@ inputEl.addEventListener('keydown', (e) => {
 
 sendBtn.addEventListener('click', sendMessage);
 
-// Initial greeting
-async function initGreeting() {
-  const typingEl = addTypingIndicator();
+// Initial greeting — fixed text, no API call
+function initGreeting() {
+  const welcomeText = `¡Hola! Bienvenido/a. Me alegra mucho que estés aquí.
 
-  try {
-    const response = await fetch('/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messages: [{ role: 'user', content: 'Hola, acabo de llegar.' }]
-      })
-    });
+Este es un espacio para conversar con honestidad sobre tu relación con el dinero, el trabajo, las decisiones y todo eso que muchas veces pesa más de lo que parece.
 
-    typingEl.remove();
+No se trata solo de números. A veces el dinero toca seguridad, autoestima, miedo, ambición, culpa, libertad, cansancio… y entender eso cambia mucho más de lo que creemos.
 
-    const div = document.createElement('div');
-    div.className = 'message ai';
+Antes de comenzar, me gustaría saber tu nombre. **¿Cómo te llamas?**
 
-    const avatar = document.createElement('div');
-    avatar.className = 'avatar';
-    avatar.textContent = '🧭';
+Y cuando quieras, podemos hacerlo de distintas maneras:
 
-    const bubble = document.createElement('div');
-    bubble.className = 'bubble';
+- Conversar libremente sobre lo que estás viviendo, pensando o sintiendo
+- Hacer un **test de 40 preguntas** para descubrir el patrón que más influye en tu manera de actuar con el dinero y las oportunidades
+- Mezclar ambas cosas — conversar primero y luego profundizar con el test
 
-    const contentDiv = document.createElement('div');
-    bubble.appendChild(contentDiv);
+No necesitas tener todo claro para empezar.
+A veces una simple conversación ya revela muchísimo.
 
-    const qr = document.createElement('div');
-    qr.className = 'quick-replies';
+**¿Qué te gustaría hacer?**`;
 
-    const replies = [
-      { label: '🎯 Quiero hacer el test', text: 'Quiero hacer el test de arquetipo' },
-      { label: '💬 Cuéntame más primero', text: '¿Cómo funciona el sistema de arquetipos?' },
-      { label: '💸 Tengo una duda sobre dinero', text: 'Tengo una situación con el dinero que quiero entender' }
-    ];
+  const div = document.createElement('div');
+  div.className = 'message ai';
 
-    replies.forEach(r => {
-      const btn = document.createElement('button');
-      btn.className = 'quick-reply';
-      btn.textContent = r.label;
-      btn.onclick = () => {
-        inputEl.value = r.text;
-        sendMessage();
-      };
-      qr.appendChild(btn);
-    });
+  const avatar = document.createElement('div');
+  avatar.className = 'avatar';
+  avatar.textContent = '🧭';
 
-    bubble.appendChild(qr);
-    div.appendChild(avatar);
-    div.appendChild(bubble);
-    messagesEl.appendChild(div);
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
 
-    let fullText = '';
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
+  const contentDiv = document.createElement('div');
+  contentDiv.innerHTML = '<p>' + parseMarkdown(welcomeText) + '</p>';
+  bubble.appendChild(contentDiv);
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+  const qr = document.createElement('div');
+  qr.className = 'quick-replies';
 
-      const chunk = decoder.decode(value);
-      const lines = chunk.split('\n');
+  const replies = [
+    { label: '🎯 Quiero hacer el test', text: 'Quiero hacer el test de arquetipo' },
+    { label: '💬 Prefiero conversar primero', text: 'Prefiero conversar primero sobre mi situación' },
+    { label: '🔀 Mezclar ambas cosas', text: 'Me gustaría mezclar la conversación con el test' }
+  ];
 
-      for (const line of lines) {
-        if (line.startsWith('data: ') && line !== 'data: [DONE]') {
-          try {
-            const data = JSON.parse(line.slice(6));
-            if (data.text) {
-              fullText += data.text;
-              contentDiv.innerHTML = '<p>' + parseMarkdown(fullText) + '</p>';
-              scrollToBottom();
-            }
-          } catch {}
-        }
-      }
-    }
+  replies.forEach(r => {
+    const btn = document.createElement('button');
+    btn.className = 'quick-reply';
+    btn.textContent = r.label;
+    btn.onclick = () => {
+      inputEl.value = r.text;
+      sendMessage();
+    };
+    qr.appendChild(btn);
+  });
 
-    conversationHistory.push({ role: 'user', content: 'Hola, acabo de llegar.' });
-    conversationHistory.push({ role: 'assistant', content: fullText });
+  bubble.appendChild(qr);
+  div.appendChild(avatar);
+  div.appendChild(bubble);
+  messagesEl.appendChild(div);
+  scrollToBottom();
 
-  } catch (err) {
-    typingEl.remove();
-    addMessage('ai', 'Bienvenido. ¿En qué puedo ayudarte hoy?', true);
-  }
+  conversationHistory.push({
+    role: 'assistant',
+    content: welcomeText
+  });
 }
 
 initGreeting();
