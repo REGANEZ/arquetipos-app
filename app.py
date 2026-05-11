@@ -657,14 +657,28 @@ async def chat(request: Request):
     messages = data.get("messages", [])
 
     def generate():
-        with client.messages.stream(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=1500,
-            system=SYSTEM_PROMPT,
-            messages=messages,
-        ) as stream:
-            for text in stream.text_stream:
-                yield f"data: {json.dumps({'text': text})}\n\n"
+        try:
+            with client.messages.stream(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=1500,
+                system=[
+                    {
+                        "type": "text",
+                        "text": SYSTEM_PROMPT,
+                        "cache_control": {"type": "ephemeral"}
+                    }
+                ],
+                messages=messages,
+                extra_headers={"anthropic-beta": "prompt-caching-2024-07-31"},
+            ) as stream:
+                for text in stream.text_stream:
+                    yield f"data: {json.dumps({'text': text})}\n\n"
+        except Exception as e:
+            error_msg = str(e)
+            if "rate_limit" in error_msg or "429" in error_msg:
+                yield f"data: {json.dumps({'text': 'Hay mucha demanda en este momento. Por favor espera unos segundos y vuelve a intentarlo. 🙏'})}\n\n"
+            else:
+                yield f"data: {json.dumps({'text': 'Hubo un problema de conexión. Por favor intenta de nuevo.'})}\n\n"
         yield "data: [DONE]\n\n"
 
     return StreamingResponse(generate(), media_type="text/event-stream")
